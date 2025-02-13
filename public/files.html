@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Explorer</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            transition: background 0.3s ease;
+            overflow: hidden;
+        }
+
+        .light-mode {
+            background: linear-gradient(to top right, lightblue, darkblue);
+            color: black;
+        }
+
+        .dark-mode {
+            background: linear-gradient(to right, #1a1a2e, #16213e);
+            color: white;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        .navbar h1 {
+            margin: 0 auto;
+        }
+
+        .profile {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .profile img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+
+        .dropdown {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            display: none;
+            flex-direction: column;
+            padding: 10px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        .dropdown.show {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .dropdown button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .dropdown button:hover {
+            background: #0056b3;
+        }
+
+        .path-container {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        .back-button {
+            display: block;
+            margin: 10px auto;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .back-button img {
+            width: 40px;
+        }
+
+        #file-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 15px;
+            margin: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            width: 120px;
+            text-align: center;
+            transition: transform 0.2s ease, background 0.3s ease;
+        }
+
+        .file-item:hover {
+            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .file-item img {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 10px;
+        }
+
+        .home-icon {
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="light-mode" onclick="closeDropdown(event)">
+    <div class="navbar">
+        <img id="home-icon" src="/images/home.png" class="home-icon" onclick="window.location.href='/dashboard'">
+        <h1>File Explorer</h1>
+        <div class="profile" onclick="toggleDropdown(event)">
+            <span id="username">Loading...</span>
+            <img id="profile-pic" src="/images/default.png">
+            <div class="dropdown" id="dropdown-menu">
+                <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+                <button onclick="logout()">Log Out</button>
+            </div>
+        </div>
+    </div>
+    <div class="path-container">
+        <button class="back-button" onclick="goBack()">
+            <img id="back-icon" src="/images/back.png">
+        </button>
+        <div id="current-path">/mnt/user</div>
+    </div>
+    <div id="file-list"></div>
+
+    <script>
+        function getFileIcon(fileName) {
+            const ext = fileName.split('.').pop().toLowerCase();
+            const isDarkMode = document.body.classList.contains("dark-mode");
+            const prefix = isDarkMode ? "white" : "";
+            const fileIcons = {
+                "mp3": "audio.png",
+                "wav": "audio.png",
+                "csv": "csv.png",
+                "doc": "doc.png",
+                "docx": "doc.png",
+                "exe": "exe.png",
+                "msi": "exe.png",
+                "gif": "gif.png",
+                "jpg": "image.png",
+                "jpeg": "image.png",
+                "bmp": "image.png",
+                "js": "ps.png",
+                "json": "json.png",
+                "pdf": "pdf.png",
+                "png": "png.png",
+                "txt": "txt.png",
+                "mp4": "video.png",
+                "avi": "video.png",
+                "zip": "zip.png",
+                "iso": "iso.png"
+            };
+            return `/images/${prefix}${fileIcons[ext] || "file.png"}`;
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+            document.body.classList.toggle("light-mode");
+            const isDarkMode = document.body.classList.contains("dark-mode");
+            localStorage.setItem("darkMode", isDarkMode);
+            document.getElementById("home-icon").src = isDarkMode ? "/images/whitehome.png" : "/images/home.png";
+            document.getElementById("back-icon").src = isDarkMode ? "/images/whiteback.png" : "/images/back.png";
+            loadFiles(document.getElementById("current-path").innerText);
+        }
+
+        function closeDropdown(event) {
+            if (!event.target.closest(".profile")) {
+                document.getElementById("dropdown-menu").classList.remove("show");
+            }
+        }
+
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            document.getElementById("dropdown-menu").classList.toggle("show");
+        }
+
+        function loadFiles(path = "/mnt/user") {
+            fetch(`/files?path=${encodeURIComponent(path)}`)
+                .then(response => response.json())
+                .then(files => {
+                    document.getElementById("current-path").textContent = path;
+                    const fileList = document.getElementById("file-list");
+                    fileList.innerHTML = "";
+                    files.forEach(file => {
+                        const listItem = document.createElement("div");
+                        listItem.classList.add("file-item");
+                        const icon = document.createElement("img");
+                        icon.src = file.type === "folder" ? (document.body.classList.contains("dark-mode") ? "/images/whitefolder.png" : "/images/folder.png") : getFileIcon(file.name);
+                        listItem.appendChild(icon);
+                        listItem.appendChild(document.createTextNode(file.name));
+                        if (file.type === "folder") listItem.addEventListener("click", () => loadFiles(`${path}/${file.name}`));
+                        fileList.appendChild(listItem);
+                    });
+                })
+                .catch(error => console.error("Error loading files:", error));
+        }
+
+        function goBack() {
+            const currentPath = document.getElementById("current-path").textContent;
+            if (currentPath !== "/mnt/user") {
+                const newPath = currentPath.substring(0, currentPath.lastIndexOf("/")) || "/mnt/user";
+                loadFiles(newPath);
+            }
+        }
+
+        function logout() {
+            window.location.href = "/logout";
+        }
+
+        window.onload = function() {
+            if (localStorage.getItem("darkMode") === "true") {
+                document.body.classList.add("dark-mode");
+                toggleDarkMode();
+            }
+            fetch("/dashboard-data")
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("username").textContent = data.username.charAt(0).toUpperCase() + data.username.slice(1);
+                    document.getElementById("profile-pic").src = data.imageUrl || "/images/default.png";
+                });
+            loadFiles();
+        };
+    </script>
+</body>
+</html>
