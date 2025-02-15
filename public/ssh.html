@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSH Terminal</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            transition: background 0.3s ease;
+            overflow: hidden;
+        }
+
+        .light-mode {
+            background: linear-gradient(to top right, lightblue, darkblue);
+            color: black;
+        }
+
+        .dark-mode {
+            background: linear-gradient(to right, #1a1a2e, #16213e);
+            color: white;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        .navbar h1 {
+            margin: 0 auto;
+        }
+
+        .profile {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .profile img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+
+        .dropdown {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            display: none;
+            flex-direction: column;
+            padding: 10px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        .dropdown.show {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .dropdown button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .dropdown button:hover {
+            background: #0056b3;
+        }
+
+        #terminal-container, #pi-terminal-container {
+            margin: 50px auto 0;
+            width: 80%;
+            height: 500px;
+        }
+
+        .buttons-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+
+        .side-buttons button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .side-buttons button:hover {
+            background: #0056b3;
+        }
+
+        .side-buttons button {
+            border-radius: 10px;
+            padding: 12px 25px;
+            font-size: 18px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        .side-buttons button:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+
+        .side-buttons button:active {
+            background-color: #004085;
+            transform: scale(1);
+        }
+
+    </style>
+</head>
+<body class="light-mode" onclick="closeDropdown(event)">
+    <div class="navbar">
+        <img id="home-icon" src="/images/home.png" class="home-icon" onclick="window.location.href='/dashboard'">
+        <h1>SSH Terminal</h1>
+        <div class="profile" onclick="toggleDropdown(event)">
+            <span id="username">Loading...</span>
+            <img id="profile-pic" src="/images/default.png">
+            <div class="dropdown" id="dropdown-menu">
+                <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+                <button onclick="logout()">Log Out</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="terminal-container"></div>
+    <div id="pi-terminal-container"></div>
+
+    <div class="buttons-container">
+        <button id="wyvern-btn" onclick="toggleTerminal('wyvern-btn')">Wyvern Unraid</button>
+        <button id="pi-btn" onclick="toggleTerminal('pi-btn')">Raspberry Pi</button>
+    </div>
+
+    <script>
+        let wyvernTerm, piTerm;
+        let currentPathPi = "/"; // Default starting path for Raspberry Pi
+        let currentPathWyvern = "/mnt/user"; // Default starting path for Wyvern
+        let currentPath = currentPathWyvern; // Initially set to Wyvern path
+
+        // Fetch dashboard data (e.g., username)
+        fetch('/dashboard-data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.username) {
+                    document.getElementById("username").innerText = data.username;
+                }
+                if (data.profilePic) {
+                    document.getElementById("profile-pic").src = data.profilePic;
+                }
+            })
+            .catch(err => console.error("Error fetching dashboard data: ", err));
+
+        // Toggle between Wyvern and Raspberry Pi terminals
+        function toggleTerminal(buttonId) {
+            if (buttonId === "wyvern-btn") {
+                document.getElementById("terminal-container").style.display = "block";
+                document.getElementById("pi-terminal-container").style.display = "none";
+                currentPath = currentPathWyvern;
+                updatePrompt();
+            } else if (buttonId === "pi-btn") {
+                document.getElementById("terminal-container").style.display = "none";
+                document.getElementById("pi-terminal-container").style.display = "block";
+                currentPath = currentPathPi;
+                updatePrompt();
+            }
+        }
+
+        function sendSSHCommand(command) {
+            const endpoint = document.getElementById("pi-terminal-container").style.display === "block" ? "/execute-ssh-pi" : "/execute-ssh";
+            
+            if (command.startsWith("cd ")) {
+                const newPath = command.slice(3).trim(); // Extract path after "cd "
+                
+                // Handle relative path by appending to the current path
+                if (!newPath.startsWith("/")) {
+                    currentPath = currentPath.endsWith("/") ? currentPath + newPath : currentPath + "/" + newPath;
+                } else {
+                    currentPath = newPath; // Absolute path
+                }
+                
+                updatePrompt();
+
+                // Clear terminal before updating
+                if (document.getElementById("pi-terminal-container").style.display === "block") {
+                    piTerm.echo(""); 
+                } else {
+                    wyvernTerm.echo(""); 
+                }
+
+                fetch(`/files?path=${encodeURIComponent(currentPath)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            if (document.getElementById("pi-terminal-container").style.display === "block") {
+                                piTerm.echo(`Error: ${data.error}`);
+                            } else {
+                                wyvernTerm.echo(`Error: ${data.error}`);
+                            }
+                        } else {
+                            const filesList = data.map(file => `${file.type === "folder" ? "[D]" : "[F]"} ${file.name}`).join("\n");
+                            console.log("Files List: ", filesList); // Debug log
+                            if (document.getElementById("pi-terminal-container").style.display === "block") {
+                                piTerm.echo(filesList || "No files or directories found.");
+                            } else {
+                                wyvernTerm.echo(filesList || "No files or directories found.");
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error: ", err); // Debug log for fetch error
+                        if (document.getElementById("pi-terminal-container").style.display === "block") {
+                            piTerm.echo(`Failed to list files: ${err.message}`);
+                        } else {
+                            wyvernTerm.echo(`Failed to list files: ${err.message}`);
+                        }
+                    });
+
+            } else if (command === "ls" || command === "dir") {
+                // Handle 'ls' and 'dir' commands
+                fetch(`/files?path=${encodeURIComponent(currentPath)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            if (document.getElementById("pi-terminal-container").style.display === "block") {
+                                piTerm.echo(`Error: ${data.error}`);
+                            } else {
+                                wyvernTerm.echo(`Error: ${data.error}`);
+                            }
+                        } else {
+                            const filesList = data.map(file => `${file.type === "folder" ? "[D]" : "[F]"} ${file.name}`).join("\n");
+                            console.log("Files List: ", filesList); // Debug log
+                            if (document.getElementById("pi-terminal-container").style.display === "block") {
+                                piTerm.echo(filesList || "No files or directories found.");
+                            } else {
+                                wyvernTerm.echo(filesList || "No files or directories found.");
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error: ", err); // Debug log for fetch error
+                        if (document.getElementById("pi-terminal-container").style.display === "block") {
+                            piTerm.echo(`Failed to list files: ${err.message}`);
+                        } else {
+                            wyvernTerm.echo(`Failed to list files: ${err.message}`);
+                        }
+                    });
+            } else {
+                fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ command: command })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("SSH Command Response: ", data); // Debug log
+                    if (data.output) {
+                        if (document.getElementById("pi-terminal-container").style.display === "block") {
+                            piTerm.echo(data.output);
+                        } else {
+                            wyvernTerm.echo(data.output);
+                        }
+                    } else if (data.error) {
+                        if (document.getElementById("pi-terminal-container").style.display === "block") {
+                            piTerm.echo(`Error: ${data.error}`);
+                        } else {
+                            wyvernTerm.echo(`Error: ${data.error}`);
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error("SSH Command Error: ", err); // Debug log
+                    if (document.getElementById("pi-terminal-container").style.display === "block") {
+                        piTerm.echo(`Error executing command: ${err.message}`);
+                    } else {
+                        wyvernTerm.echo(`Error executing command: ${err.message}`);
+                    }
+                });
+            }
+        }
+
+        function updatePrompt() {
+            const prompt = currentPath + "$ ";
+            if (document.getElementById("pi-terminal-container").style.display === "block") {
+                piTerm.set_prompt(prompt);
+            } else {
+                wyvernTerm.set_prompt(prompt);
+            }
+        }
+
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById("dropdown-menu");
+            dropdown.classList.toggle("show");
+        }
+
+        function closeDropdown(event) {
+            if (!event.target.closest(".profile")) {
+                const dropdown = document.getElementById("dropdown-menu");
+                dropdown.classList.remove("show");
+            }
+        }
+
+        function logout() {
+            // Handle logout functionality
+            window.location.href = '/logout';
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+            document.body.classList.toggle("light-mode");
+        }
+
+        $(document).ready(function () {
+            wyvernTerm = $('#terminal-container').terminal(sendSSHCommand, {
+                greetings: 'Wyvern Unraid Terminal',
+                prompt: currentPath + "$ ",
+                onInit: function() {
+                    console.log("Wyvern terminal initialized.");
+                },
+                keydown: function(e) {
+                    if (e.key === "Enter") {
+                        $(this).echo(currentPath + "$ ");
+                    }
+                }
+            });
+
+            piTerm = $('#pi-terminal-container').terminal(sendSSHCommand, {
+                greetings: 'Raspberry Pi Terminal',
+                prompt: currentPath + "$ ",
+                onInit: function() {
+                    console.log("Raspberry Pi terminal initialized.");
+                },
+                keydown: function(e) {
+                    if (e.key === "Enter") {
+                        $(this).echo(currentPath + "$ ");
+                    }
+                }
+            });
+
+            // Initially hide the terminal containers
+            $('#terminal-container').hide();
+            $('#pi-terminal-container').hide();
+        });
+    </script>
+</body>
+</html>

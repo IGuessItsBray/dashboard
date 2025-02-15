@@ -216,25 +216,42 @@
         }
 
         function loadFiles(path = "/mnt/user") {
-            fetch(`/files?path=${encodeURIComponent(path)}`)
-                .then(response => response.json())
-                .then(files => {
-                    document.getElementById("current-path").textContent = path;
-                    const fileList = document.getElementById("file-list");
-                    fileList.innerHTML = "";
-                    files.forEach(file => {
-                        const listItem = document.createElement("div");
-                        listItem.classList.add("file-item");
-                        const icon = document.createElement("img");
-                        icon.src = file.type === "folder" ? (document.body.classList.contains("dark-mode") ? "/images/whitefolder.png" : "/images/folder.png") : getFileIcon(file.name);
-                        listItem.appendChild(icon);
-                        listItem.appendChild(document.createTextNode(file.name));
-                        if (file.type === "folder") listItem.addEventListener("click", () => loadFiles(`${path}/${file.name}`));
-                        fileList.appendChild(listItem);
-                    });
-                })
-                .catch(error => console.error("Error loading files:", error));
-        }
+        fetch(`/files?path=${encodeURIComponent(path)}`)
+            .then(response => response.json())
+            .then(files => {
+                document.getElementById("current-path").textContent = path;
+                const fileList = document.getElementById("file-list");
+                fileList.innerHTML = "";
+                files.forEach(file => {
+                    const listItem = document.createElement("div");
+                    listItem.classList.add("file-item");
+
+                    const icon = document.createElement("img");
+                    icon.src = file.type === "folder" 
+                        ? (document.body.classList.contains("dark-mode") ? "/images/whitefolder.png" : "/images/folder.png") 
+                        : getFileIcon(file.name);
+                    listItem.appendChild(icon);
+
+                    const fileName = document.createElement("span");
+                    fileName.textContent = file.name;
+                    listItem.appendChild(fileName);
+
+                    if (file.type === "folder") {
+                        listItem.addEventListener("click", () => loadFiles(`${path}/${file.name}`));
+                    } else {
+                        const downloadLink = document.createElement("a");
+                        downloadLink.href = `/download?path=${encodeURIComponent(`${path}/${file.name}`)}`;
+                        downloadLink.textContent = "Download";
+                        downloadLink.style.display = "block";
+                        downloadLink.style.marginTop = "5px";
+                        listItem.appendChild(downloadLink);
+                    }
+
+                    fileList.appendChild(listItem);
+                });
+            })
+            .catch(error => console.error("Error loading files:", error));
+    }
 
         function goBack() {
             const currentPath = document.getElementById("current-path").textContent;

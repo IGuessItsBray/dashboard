@@ -17,5 +17,13 @@
     "ftp": {
         "user": "web",
         "pass": "Stc_LMngB-4Ea53"
+    },
+    "ssh": {
+        "wyvernip": "192.168.2.13",
+        "wyvernuser": "root",
+        "wyvernpass": "Trenton2017#",
+        "piip": "192.168.2.140",
+        "piuser": "bray",
+        "pipass": "tigger45"
     }
 }
