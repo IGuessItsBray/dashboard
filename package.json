@@ -2,6 +2,7 @@
   "dependencies": {
     "basic-ftp": "^5.0.5",
     "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "express-fileupload": "^1.5.1",
@@ -12,6 +13,7 @@
     "node-ssh": "^13.2.0",
     "session": "^0.1.0",
     "smb2": "^0.2.11",
+    "sqlite3": "^5.1.7",
     "ssh2": "^1.16.0",
     "terminal.js": "^1.0.11"
   },

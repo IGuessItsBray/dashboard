@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            transition: background 0.3s ease;
+            overflow: hidden;
+        }
+
+        .light-mode {
+            background: linear-gradient(to top right, lightblue, darkblue);
+            color: black;
+        }
+
+        .dark-mode {
+            background: linear-gradient(to right, #1a1a2e, #16213e);
+            color: white;
+        }
+
+        .dark-mode h3, .dark-mode li span {
+            color: black;
+        }
+
+        .task-column h3 {
+            text-align: center;
+        }
+
+        .task-column h3,
+        .task-list li span {
+            transition: color 0.3s ease;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        .navbar h1 {
+            margin: 0 auto;
+        }
+
+        .profile {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .profile img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+
+        .dropdown {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            display: none;
+            flex-direction: column;
+            padding: 10px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        .dropdown.show {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .dropdown button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .dropdown button:hover {
+            background: #0056b3;
+        }
+
+        .tasks-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            padding: 10px;
+            height: calc(100vh - 150px);
+        }
+
+        .task-column {
+            width: 45%;
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .task-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .task-list li {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .task-list li input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .trash-icon {
+            display: none;
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+        }
+
+        .task-list li:hover .trash-icon {
+            display: block;
+        }
+
+        .buttons-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+
+        .side-buttons button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .side-buttons button:hover {
+            background: #0056b3;
+        }
+
+        .search-bar {
+            width: 50%;
+            padding: 10px;
+            margin: 20px auto;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: block;
+        }
+
+        #new-task {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-top: 10px;
+            outline: 2px solid #007bff;
+            outline-offset: 2px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            height: 50px; /* Same height as #new-task */
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Modal styles */
+        .task-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            max-width: 80%;
+            min-width: 300px;
+        }
+
+        .task-modal .close-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .task-details-textarea {
+            width: 100%;
+            height: 150px;
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .dark-mode .task-details-textarea {
+            background-color: #2c2f3b;
+            color: white;
+            border: 1px solid #444;
+        }
+    </style>
+</head>
+<body class="light-mode" onclick="closeDropdown(event)">
+    <div class="navbar">
+        <img id="home-icon" src="/images/home.png" class="home-icon" onclick="window.location.href='/dashboard'">
+        <h1>Notes</h1>
+        <div class="profile" onclick="toggleDropdown(event)">
+            <span id="username">Loading...</span>
+            <img id="profile-pic" src="/images/default.png">
+            <div class="dropdown" id="dropdown-menu">
+                <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+                <button onclick="logout()">Log Out</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search bar at the top -->
+    <input type="text" id="search-bar" class="search-bar" placeholder="Search tasks" oninput="filterTasks()" />
+
+    <div class="tasks-container">
+        <div class="task-column">
+            <h3>To Do</h3>
+            <ul class="task-list" id="todo-tasks">
+                <!-- New tasks will appear here -->
+            </ul>
+        </div>
+
+        <div class="task-column">
+            <h3>Completed</h3>
+            <ul class="task-list" id="completed-tasks">
+                <!-- Completed tasks will appear here -->
+            </ul>
+        </div>
+    </div>
+
+    <div class="buttons-container">
+        <input type="text" id="new-task" placeholder="Enter new task" />
+        <button onclick="addTask()">Add Task</button>
+    </div>
+
+    <!-- Modal -->
+    <div id="task-modal" class="task-modal">
+        <span class="close-btn" onclick="closeTaskModal()">×</span>
+        <h2>Task Details</h2>
+        <textarea id="task-details-textarea" class="task-details-textarea" placeholder="Enter details..."></textarea>
+    </div>
+
+    <script>
+        // Load theme from localStorage
+        const savedTheme = localStorage.getItem("theme");
+        if (savedTheme) {
+            document.body.classList.remove("light-mode", "dark-mode");
+            document.body.classList.add(savedTheme);
+        }
+    
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById("dropdown-menu");
+            dropdown.classList.toggle("show");
+        }
+    
+        function closeDropdown(event) {
+            if (!event.target.closest(".profile")) {
+                const dropdown = document.getElementById("dropdown-menu");
+                dropdown.classList.remove("show");
+            }
+        }
+    
+        function logout() {
+            window.location.href = '/logout';
+        }
+    
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+            document.body.classList.toggle("light-mode");
+            localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark-mode" : "light-mode");
+        }
+    
+        function addTask() {
+            const taskInput = document.getElementById("new-task");
+            const taskText = taskInput.value.trim();
+            if (taskText) {
+                const todoList = document.getElementById("todo-tasks");
+                const listItem = document.createElement("li");
+    
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.onclick = moveTask;
+    
+                const label = document.createElement("span");
+                label.textContent = taskText;
+                label.onclick = showTaskDetails;
+    
+                const trashIcon = document.createElement("img");
+                trashIcon.src = "/images/trash.png";
+                trashIcon.className = "trash-icon";
+                trashIcon.onclick = deleteTask;
+    
+                listItem.appendChild(checkbox);
+                listItem.appendChild(label);
+                listItem.appendChild(trashIcon);
+                todoList.appendChild(listItem);
+    
+                // Store the task in localStorage
+                const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                tasks.push({ text: taskText, completed: false, details: "" });
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+    
+                taskInput.value = ''; // Clear input
+            }
+        }
+    
+        // Add event listener to trigger addTask on Enter key press
+        document.getElementById("new-task").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                addTask();
+            }
+        });
+    
+        function moveTask(event) {
+            const taskItem = event.target.parentNode;
+            const isChecked = event.target.checked;
+            const targetList = isChecked ? document.getElementById("completed-tasks") : document.getElementById("todo-tasks");
+            targetList.appendChild(taskItem);
+    
+            // Update task completion status in localStorage
+            const taskText = taskItem.querySelector("span").textContent;
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            const task = tasks.find(t => t.text === taskText);
+            if (task) {
+                task.completed = isChecked;
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            }
+        }
+    
+        function deleteTask(event) {
+            const taskItem = event.target.parentNode;
+            const taskText = taskItem.querySelector("span").textContent;
+    
+            // Remove task from localStorage
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            const updatedTasks = tasks.filter(t => t.text !== taskText);
+            localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+    
+            taskItem.remove();
+        }
+    
+        function filterTasks() {
+            const searchTerm = document.getElementById("search-bar").value.toLowerCase();
+            const tasks = document.querySelectorAll(".task-list li");
+            tasks.forEach(task => {
+                const taskText = task.querySelector("span").textContent.toLowerCase();
+                task.style.display = taskText.includes(searchTerm) ? "flex" : "none";
+            });
+        }
+    
+        function showTaskDetails(event) {
+            const taskText = event.target.textContent;
+            const taskId = taskText.replace(/\s+/g, '-').toLowerCase();
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            const task = tasks.find(t => t.text === taskText);
+    
+            document.getElementById("task-details-textarea").value = task ? task.details : "";
+            document.getElementById("task-modal").style.display = "block";
+    
+            document.getElementById("task-details-textarea").oninput = function() {
+                const updatedDetails = this.value;
+                if (task) {
+                    task.details = updatedDetails;
+                    localStorage.setItem('tasks', JSON.stringify(tasks));
+                }
+            };
+        }
+    
+        function closeTaskModal() {
+            document.getElementById("task-modal").style.display = "none";
+        }
+    
+        window.onload = function() {
+            // Load saved tasks from localStorage
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            tasks.forEach(task => {
+                const todoList = task.completed ? document.getElementById("completed-tasks") : document.getElementById("todo-tasks");
+                const listItem = document.createElement("li");
+    
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = task.completed;
+                checkbox.onclick = moveTask;
+    
+                const label = document.createElement("span");
+                label.textContent = task.text;
+                label.onclick = showTaskDetails;
+    
+                const trashIcon = document.createElement("img");
+                trashIcon.src = "/images/trash.png";
+                trashIcon.className = "trash-icon";
+                trashIcon.onclick = deleteTask;
+    
+                listItem.appendChild(checkbox);
+                listItem.appendChild(label);
+                listItem.appendChild(trashIcon);
+                todoList.appendChild(listItem);
+            });
+        };
+    </script>
+    
+</body>
+</html>
